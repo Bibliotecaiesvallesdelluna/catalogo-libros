@@ -43,23 +43,32 @@
   <div class="pagination" id="pagination-controls"></div>
 
   <script>
+    // Función de debounce: retrasa la ejecución de 'func' hasta que hayan pasado 'delay' ms sin invocaciones
+    function debounce(func, delay) {
+      let timeout;
+      return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), delay);
+      };
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
       const catalogoDiv = document.getElementById('catalogo-libros');
       const buscador = document.getElementById('buscador');
       const paginationControls = document.getElementById('pagination-controls');
 
-      // URL del CSV publicado en Google Sheets o alojado en WordPress
+      // URL del CSV (puede ser el enlace de Google Sheets o el alojado en WordPress)
       const urlCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTlqKvq21xTVerkiDU_ZKitDj5C7go3VFfk3n046kNm9ev_tc3fV4z_fq8GVA3J8LqWfcsYPOlBt3OM/pub?output=csv';
 
-      let globalData = [];  // Almacenamos todas las filas (sin encabezados)
-      let headers = [];     // Almacenamos los encabezados
+      let globalData = [];  // Todas las filas (sin encabezados)
+      let headers = [];     // Encabezados de la tabla
       let currentPage = 1;
       const rowsPerPage = 50;
       let filteredData = []; // Datos filtrados según la búsqueda
 
-      // Función para renderizar la tabla con los datos
+      // Función para renderizar la tabla
       function renderTable(data) {
-        // Creamos la tabla y su estructura
+        // Creamos la tabla y sus secciones
         const table = document.createElement('table');
         const thead = document.createElement('thead');
         const trHead = document.createElement('tr');
@@ -73,12 +82,12 @@
         table.appendChild(thead);
 
         const tbody = document.createElement('tbody');
-        // Calculamos el rango de filas a mostrar según la página actual
+        // Calculamos el rango de filas según la página actual
         const start = (currentPage - 1) * rowsPerPage;
         const end = start + rowsPerPage;
         const pageData = data.slice(start, end);
 
-        // Creamos cada fila usando un fragmento para optimizar la inserción
+        // Creamos las filas usando creación de elementos para mayor rendimiento
         pageData.forEach(row => {
           const tr = document.createElement('tr');
           row.forEach(cell => {
@@ -90,7 +99,6 @@
         });
         table.appendChild(tbody);
 
-        // Insertamos la tabla en el contenedor
         catalogoDiv.innerHTML = '';
         catalogoDiv.appendChild(table);
 
@@ -99,10 +107,10 @@
 
       // Función para renderizar los controles de paginación
       function renderPagination(data) {
-        paginationControls.innerHTML = ''; // Limpiamos controles previos
+        paginationControls.innerHTML = ''; // Limpiamos controles anteriores
         const totalRows = data.length;
         const totalPages = Math.ceil(totalRows / rowsPerPage);
-        if (totalPages <= 1) return; // No se muestra paginación si hay una sola página
+        if (totalPages <= 1) return; // No mostrar paginación si solo hay una página
 
         // Botón "Anterior"
         const prevButton = document.createElement('button');
@@ -150,7 +158,7 @@
         .then(response => response.text())
         .then(data => {
           let lines = data.split('\n').filter(line => line.trim() !== '');
-          // Separamos el encabezado y las filas
+          // Separamos encabezados y datos
           headers = lines[0].split(',');
           globalData = lines.slice(1).map(line => line.split(','));
           filteredData = globalData;
@@ -161,13 +169,13 @@
           console.error(error);
         });
 
-      // Evento de búsqueda
-      buscador.addEventListener('input', function() {
+      // Usamos debounce para la búsqueda, retrasando la ejecución 300ms
+      buscador.addEventListener('input', debounce(function() {
         const query = buscador.value;
         filteredData = filterData(query);
-        currentPage = 1; // Reiniciamos a la primera página tras la búsqueda
+        currentPage = 1; // Reiniciamos la paginación
         renderTable(filteredData);
-      });
+      }, 300));
     });
   </script>
 </body>
