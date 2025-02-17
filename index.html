@@ -8,9 +8,13 @@
       font-family: sans-serif;
       margin: 20px;
     }
+    h1 {
+      margin-bottom: 20px;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
+      margin-bottom: 20px;
     }
     th, td {
       border: 1px solid #ccc;
@@ -23,57 +27,146 @@
       width: 100%;
       max-width: 400px;
     }
+    .pagination {
+      margin-top: 10px;
+    }
+    .pagination button {
+      padding: 8px 12px;
+      margin-right: 5px;
+    }
   </style>
 </head>
 <body>
   <h1>Catálogo de Libros</h1>
   <input type="text" id="buscador" placeholder="Buscar en el catálogo">
   <div id="catalogo-libros">Cargando catálogo de libros...</div>
+  <div class="pagination" id="pagination-controls"></div>
 
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       const catalogoDiv = document.getElementById('catalogo-libros');
       const buscador = document.getElementById('buscador');
+      const paginationControls = document.getElementById('pagination-controls');
 
-      // URL del CSV publicado en Google Sheets
+      // URL del CSV publicado en Google Sheets o alojado en WordPress
       const urlCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTlqKvq21xTVerkiDU_ZKitDj5C7go3VFfk3n046kNm9ev_tc3fV4z_fq8GVA3J8LqWfcsYPOlBt3OM/pub?output=csv';
 
+      let globalData = [];  // Almacenamos todas las filas (sin encabezados)
+      let headers = [];     // Almacenamos los encabezados
+      let currentPage = 1;
+      const rowsPerPage = 50;
+      let filteredData = []; // Datos filtrados según la búsqueda
+
+      // Función para renderizar la tabla con los datos
+      function renderTable(data) {
+        // Creamos la tabla y su estructura
+        const table = document.createElement('table');
+        const thead = document.createElement('thead');
+        const trHead = document.createElement('tr');
+
+        headers.forEach(header => {
+          const th = document.createElement('th');
+          th.textContent = header;
+          trHead.appendChild(th);
+        });
+        thead.appendChild(trHead);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        // Calculamos el rango de filas a mostrar según la página actual
+        const start = (currentPage - 1) * rowsPerPage;
+        const end = start + rowsPerPage;
+        const pageData = data.slice(start, end);
+
+        // Creamos cada fila usando un fragmento para optimizar la inserción
+        pageData.forEach(row => {
+          const tr = document.createElement('tr');
+          row.forEach(cell => {
+            const td = document.createElement('td');
+            td.textContent = cell;
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+
+        // Insertamos la tabla en el contenedor
+        catalogoDiv.innerHTML = '';
+        catalogoDiv.appendChild(table);
+
+        renderPagination(data);
+      }
+
+      // Función para renderizar los controles de paginación
+      function renderPagination(data) {
+        paginationControls.innerHTML = ''; // Limpiamos controles previos
+        const totalRows = data.length;
+        const totalPages = Math.ceil(totalRows / rowsPerPage);
+        if (totalPages <= 1) return; // No se muestra paginación si hay una sola página
+
+        // Botón "Anterior"
+        const prevButton = document.createElement('button');
+        prevButton.textContent = 'Anterior';
+        prevButton.disabled = (currentPage === 1);
+        prevButton.addEventListener('click', function() {
+          if (currentPage > 1) {
+            currentPage--;
+            renderTable(data);
+          }
+        });
+        paginationControls.appendChild(prevButton);
+
+        // Botón "Siguiente"
+        const nextButton = document.createElement('button');
+        nextButton.textContent = 'Siguiente';
+        nextButton.disabled = (currentPage === totalPages);
+        nextButton.addEventListener('click', function() {
+          if (currentPage < totalPages) {
+            currentPage++;
+            renderTable(data);
+          }
+        });
+        paginationControls.appendChild(nextButton);
+
+        // Información de la página actual
+        const info = document.createElement('span');
+        info.textContent = ` Página ${currentPage} de ${totalPages}`;
+        paginationControls.appendChild(info);
+      }
+
+      // Función para filtrar los datos según la búsqueda
+      function filterData(query) {
+        if (query.trim() === '') {
+          return globalData;
+        }
+        query = query.toLowerCase();
+        return globalData.filter(row =>
+          row.some(cell => cell.toLowerCase().includes(query))
+        );
+      }
+
+      // Cargamos el CSV
       fetch(urlCSV)
         .then(response => response.text())
         .then(data => {
-          const lineas = data.split('\n').filter(linea => linea.trim() !== '');
-          const encabezados = lineas[0].split(',');
-          let html = '<table><thead><tr>';
-          encabezados.forEach(encabezado => {
-            html += `<th>${encabezado}</th>`;
-          });
-          html += '</tr></thead><tbody>';
-
-          for (let i = 1; i < lineas.length; i++) {
-            const celdas = lineas[i].split(',');
-            html += '<tr>';
-            celdas.forEach(celda => {
-              html += `<td>${celda}</td>`;
-            });
-            html += '</tr>';
-          }
-          html += '</tbody></table>';
-          catalogoDiv.innerHTML = html;
+          let lines = data.split('\n').filter(line => line.trim() !== '');
+          // Separamos el encabezado y las filas
+          headers = lines[0].split(',');
+          globalData = lines.slice(1).map(line => line.split(','));
+          filteredData = globalData;
+          renderTable(filteredData);
+        })
+        .catch(error => {
+          catalogoDiv.textContent = 'Error al cargar el catálogo';
+          console.error(error);
         });
 
+      // Evento de búsqueda
       buscador.addEventListener('input', function() {
-        const filtro = buscador.value.toLowerCase();
-        const filas = document.querySelectorAll('#catalogo-libros tbody tr');
-        filas.forEach(fila => {
-          const celdas = fila.querySelectorAll('td');
-          let coincide = false;
-          celdas.forEach(celda => {
-            if (celda.innerText.toLowerCase().includes(filtro)) {
-              coincide = true;
-            }
-          });
-          fila.style.display = coincide ? '' : 'none';
-        });
+        const query = buscador.value;
+        filteredData = filterData(query);
+        currentPage = 1; // Reiniciamos a la primera página tras la búsqueda
+        renderTable(filteredData);
       });
     });
   </script>
