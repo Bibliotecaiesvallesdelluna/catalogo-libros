@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Catálogo de Libros</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
+    }
+    input {
+      margin-bottom: 20px;
+      padding: 8px;
+      width: 100%;
+      max-width: 400px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Catálogo de Libros</h1>
+  <input type="text" id="buscador" placeholder="Buscar en el catálogo">
+  <div id="catalogo-libros">Cargando catálogo de libros...</div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const catalogoDiv = document.getElementById('catalogo-libros');
+      const buscador = document.getElementById('buscador');
+
+      // URL del CSV publicado en Google Sheets
+      const urlCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTlqKvq21xTVerkiDU_ZKitDj5C7go3VFfk3n046kNm9ev_tc3fV4z_fq8GVA3J8LqWfcsYPOlBt3OM/pub?output=csv';
+
+      fetch(urlCSV)
+        .then(response => response.text())
+        .then(data => {
+          const lineas = data.split('\n').filter(linea => linea.trim() !== '');
+          const encabezados = lineas[0].split(',');
+          let html = '<table><thead><tr>';
+          encabezados.forEach(encabezado => {
+            html += `<th>${encabezado}</th>`;
+          });
+          html += '</tr></thead><tbody>';
+
+          for (let i = 1; i < lineas.length; i++) {
+            const celdas = lineas[i].split(',');
+            html += '<tr>';
+            celdas.forEach(celda => {
+              html += `<td>${celda}</td>`;
+            });
+            html += '</tr>';
+          }
+          html += '</tbody></table>';
+          catalogoDiv.innerHTML = html;
+        });
+
+      buscador.addEventListener('input', function() {
+        const filtro = buscador.value.toLowerCase();
+        const filas = document.querySelectorAll('#catalogo-libros tbody tr');
+        filas.forEach(fila => {
+          const celdas = fila.querySelectorAll('td');
+          let coincide = false;
+          celdas.forEach(celda => {
+            if (celda.innerText.toLowerCase().includes(filtro)) {
+              coincide = true;
+            }
+          });
+          fila.style.display = coincide ? '' : 'none';
+        });
+      });
+    });
+  </script>
+</body>
+</html>
