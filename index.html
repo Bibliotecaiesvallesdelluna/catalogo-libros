@@ -39,7 +39,6 @@
       padding: 8px 12px;
       margin-right: 5px;
     }
-    /* Clase útil para ocultar texto en accesibilidad (no se usa aquí, pero te puede servir) */
     .visually-hidden {
       position: absolute !important;
       height: 1px; 
@@ -56,7 +55,6 @@
 <body>
   <h1>Catálogo de Libros</h1>
 
-  <!-- Etiqueta asociada al campo de búsqueda para mejorar la accesibilidad -->
   <label for="buscador">Buscar en el catálogo:</label>
   <input 
     type="text" 
@@ -69,11 +67,6 @@
   <div class="pagination" id="pagination-controls"></div>
 
   <script>
-    /**
-     * 1) Parser de CSV que respeta comillas:
-     *    - Maneja campos con comas dentro de comillas.
-     *    - Dobles comillas "" se interpretan como comillas literales dentro del texto.
-     */
     function parseCSVLine(line) {
       const result = [];
       let field = '';
@@ -83,40 +76,30 @@
         const char = line[i];
         
         if (char === '"') {
-          // Si estamos dentro de comillas y la siguiente es otra comilla, es un escape de comilla: ""
           if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
             field += '"'; 
-            i++; // Saltamos la comilla extra
+            i++;
           } else {
-            // Cambiamos el estado de inQuotes
             inQuotes = !inQuotes;
           }
         } else if (char === ',' && !inQuotes) {
-          // Fin de campo
           result.push(field.trim());
           field = '';
         } else if ((char === '\r' || char === '\n') && !inQuotes) {
-          // Salto de línea fuera de comillas => terminamos la línea
           break;
         } else {
           field += char;
         }
       }
-      // Añadimos el último campo si quedara algo pendiente
       result.push(field.trim());
       return result;
     }
 
     function parseCSV(data) {
-      // Separamos en líneas manejando \r\n o \n y quitamos líneas vacías
       const rawLines = data.split(/\r?\n/).filter(line => line.trim() !== '');
       return rawLines.map(line => parseCSVLine(line));
     }
 
-    /**
-     * 2) Función de debounce:
-     *    Retrasa la ejecución de 'func' hasta que pasen 'delay' ms sin nuevas invocaciones.
-     */
     function debounce(func, delay) {
       let timeout;
       return function(...args) {
@@ -130,22 +113,15 @@
       const buscador = document.getElementById('buscador');
       const paginationControls = document.getElementById('pagination-controls');
 
-      // URL del CSV (puede ser de Google Sheets o un CSV alojado en tu hosting)
-      // ¡Reemplaza con tu propio enlace CSV si lo deseas!
       const urlCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTlqKvq21xTVerkiDU_ZKitDj5C7go3VFfk3n046kNm9ev_tc3fV4z_fq8GVA3J8LqWfcsYPOlBt3OM/pub?output=csv';
 
-      // Variables globales para los datos
-      let globalData = [];   // Todas las filas (sin encabezados)
-      let headers = [];      // Encabezados de la tabla
+      let globalData = [];
+      let headers = [];
       let currentPage = 1;
       const rowsPerPage = 50;
-      let filteredData = []; // Datos filtrados según la búsqueda
+      let filteredData = [];
 
-      /**
-       * 3) Renderiza la tabla con los datos
-       */
       function renderTable(data) {
-        // Creamos la tabla y sus secciones
         const table = document.createElement('table');
         table.setAttribute('aria-label', 'Tabla con el listado de libros disponibles');
 
@@ -161,12 +137,10 @@
         table.appendChild(thead);
 
         const tbody = document.createElement('tbody');
-        // Calculamos el rango de filas según la página actual
         const start = (currentPage - 1) * rowsPerPage;
         const end = start + rowsPerPage;
         const pageData = data.slice(start, end);
 
-        // Creamos las filas
         pageData.forEach(row => {
           const tr = document.createElement('tr');
           row.forEach(cell => {
@@ -178,25 +152,17 @@
         });
         table.appendChild(tbody);
 
-        // Reemplazamos el contenido anterior
         catalogoDiv.innerHTML = '';
         catalogoDiv.appendChild(table);
-
-        // Renderizamos los controles de paginación
         renderPagination(data);
       }
 
-      /**
-       * 4) Renderiza los controles de paginación
-       */
       function renderPagination(data) {
-        paginationControls.innerHTML = ''; // Limpiamos controles anteriores
-
+        paginationControls.innerHTML = '';
         const totalRows = data.length;
         const totalPages = Math.ceil(totalRows / rowsPerPage);
-        if (totalPages <= 1) return; // No mostrar paginación si solo hay 1 página
+        if (totalPages <= 1) return;
 
-        // Botón "Anterior"
         const prevButton = document.createElement('button');
         prevButton.textContent = 'Anterior';
         prevButton.disabled = (currentPage === 1);
@@ -209,7 +175,6 @@
         });
         paginationControls.appendChild(prevButton);
 
-        // Botón "Siguiente"
         const nextButton = document.createElement('button');
         nextButton.textContent = 'Siguiente';
         nextButton.disabled = (currentPage === totalPages);
@@ -222,7 +187,6 @@
         });
         paginationControls.appendChild(nextButton);
 
-        // Información de la página actual (con aria-live para lectores de pantalla)
         const info = document.createElement('span');
         info.setAttribute('aria-live', 'polite');
         info.style.marginLeft = '10px';
@@ -230,9 +194,6 @@
         paginationControls.appendChild(info);
       }
 
-      /**
-       * 5) Función para filtrar los datos según la búsqueda
-       */
       function filterData(query) {
         if (query.trim() === '') {
           return globalData;
@@ -243,27 +204,30 @@
         );
       }
 
-      /**
-       * 6) Cargamos el CSV, lo parseamos y creamos la tabla inicial
-       */
       fetch(urlCSV)
         .then(response => response.text())
         .then(data => {
-          // Parseamos todo el CSV
           const allLines = parseCSV(data);
-          // La primera línea son los encabezados
-          headers = allLines[0];
-          // El resto son los datos
+          
+          // Mapeo de encabezados
+          const headerMap = {
+            'CodigoEjemplar': 'Código Ejemplar',
+            'Autor': 'Autor',
+            'Titulo': 'Título',
+            'Ubicacion': 'Ubicación',
+            'Editorial': 'Editorial',
+            'AnoEdicion': 'Año Edición',
+            'Fondos.ISBN': 'ISBN'
+          };
+          
+          headers = allLines[0].map(header => headerMap[header] || header);
           globalData = allLines.slice(1);
 
-          // Ajustamos las filas si algunas tienen más/menos columnas que los encabezados
           const numColumns = headers.length;
           globalData.forEach((row, index) => {
             if (row.length > numColumns) {
-              // Recortamos columnas sobrantes
               row = row.slice(0, numColumns);
             } else if (row.length < numColumns) {
-              // Rellenamos columnas faltantes con cadenas vacías
               while (row.length < numColumns) {
                 row.push('');
               }
@@ -271,7 +235,6 @@
             globalData[index] = row;
           });
 
-          // Mostramos la tabla inicial (sin filtros)
           filteredData = globalData;
           renderTable(filteredData);
         })
@@ -280,13 +243,10 @@
           console.error(error);
         });
 
-      /**
-       * 7) Escuchamos el evento de búsqueda con debounce (300ms)
-       */
       buscador.addEventListener('input', debounce(function() {
         const query = buscador.value;
         filteredData = filterData(query);
-        currentPage = 1; // Reiniciamos a la primera página tras la búsqueda
+        currentPage = 1;
         renderTable(filteredData);
       }, 300));
     });
