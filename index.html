@@ -27,16 +27,6 @@
       padding: 8px;
       text-align: left;
     }
-    th {
-      cursor: pointer;
-      user-select: none;
-    }
-    th.sort-asc::after {
-      content: " ↑";
-    }
-    th.sort-desc::after {
-      content: " ↓";
-    }
     input {
       margin-bottom: 20px;
       padding: 8px;
@@ -60,52 +50,22 @@
     type="text" 
     id="buscador" 
     placeholder="Ej. El Quijote"
-    aria-label="Campo de búsqueda para filtrar los libros por texto"
   >
 
   <div id="catalogo-libros">Cargando catálogo de libros...</div>
   <div class="pagination" id="pagination-controls"></div>
 
   <script>
-    function parseCSVLine(line) {
-      const result = [];
-      let field = '';
-      let inQuotes = false;
-
-      for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        if (char === '"') {
-          if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
-            field += '"';
-            i++;
-          } else {
-            inQuotes = !inQuotes;
-          }
-        } else if (char === ',' && !inQuotes) {
-          result.push(field.trim());
-          field = '';
-        } else if ((char === '\r' || char === '\n') && !inQuotes) {
-          break;
-        } else {
-          field += char;
-        }
-      }
-      result.push(field.trim());
-      return result;
-    }
-
-    function parseCSV(data) {
-      const rawLines = data.split(/\r?\n/).filter(line => line.trim() !== '');
-      return rawLines.map(line => parseCSVLine(line));
-    }
-
-    function debounce(func, delay) {
-      let timeout;
-      return function(...args) {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(this, args), delay);
-      };
-    }
+    // Mapeo de encabezados antiguos a nuevos nombres del CSV
+    const headerMapping = {
+      "CodigoEjemplar": "Código Ejemplar",
+      "Autor": "Autor",
+      "Titulo": "Título",
+      "Ubicacion": "Ubicación",
+      "Editorial": "Editorial",
+      "AnoEdicion": "Año Edición",
+      "Fondos.ISBN": "ISBN"
+    };
 
     document.addEventListener('DOMContentLoaded', function() {
       const catalogoDiv = document.getElementById('catalogo-libros');
@@ -119,37 +79,20 @@
       let currentPage = 1;
       const rowsPerPage = 50;
       let filteredData = [];
-      let sortState = { index: -1, asc: true };
 
-      // Mapa de encabezados para mostrar nombres correctos
-      const headerMap = {
-        "CodigoEjemplar": "Código Ejemplar",
-        "Autor": "Autor",
-        "Titulo": "Título",
-        "Ubicacion": "Ubicación",
-        "Editorial": "Editorial",
-        "AnoEdicion": "Año Edición",
-        "Fondos.ISBN": "ISBN"
-      };
+      function parseCSV(data) {
+        const rawLines = data.split(/\r?\n/).filter(line => line.trim() !== '');
+        return rawLines.map(line => line.split(',').map(cell => cell.trim()));
+      }
 
       function renderTable(data) {
         const table = document.createElement('table');
-        table.setAttribute('aria-label', 'Tabla con el listado de libros disponibles');
-
         const thead = document.createElement('thead');
         const trHead = document.createElement('tr');
 
-        headers.forEach((header, index) => {
+        headers.forEach(header => {
           const th = document.createElement('th');
-          th.textContent = headerMap[header] || header;
-          th.addEventListener('click', () => {
-            sortTableByColumn(index);
-          });
-
-          // Indicador visual de orden
-          if (sortState.index === index) {
-            th.classList.add(sortState.asc ? 'sort-asc' : 'sort-desc');
-          }
+          th.textContent = headerMapping[header] || header;
           trHead.appendChild(th);
         });
         thead.appendChild(trHead);
@@ -173,14 +116,12 @@
 
         catalogoDiv.innerHTML = '';
         catalogoDiv.appendChild(table);
-
         renderPagination(data);
       }
 
       function renderPagination(data) {
         paginationControls.innerHTML = '';
-        const totalRows = data.length;
-        const totalPages = Math.ceil(totalRows / rowsPerPage);
+        const totalPages = Math.ceil(data.length / rowsPerPage);
         if (totalPages <= 1) return;
 
         const prevButton = document.createElement('button');
@@ -189,7 +130,7 @@
         prevButton.addEventListener('click', function() {
           if (currentPage > 1) {
             currentPage--;
-            renderTable(filteredData);
+            renderTable(data);
           }
         });
         paginationControls.appendChild(prevButton);
@@ -200,39 +141,25 @@
         nextButton.addEventListener('click', function() {
           if (currentPage < totalPages) {
             currentPage++;
-            renderTable(filteredData);
+            renderTable(data);
           }
         });
         paginationControls.appendChild(nextButton);
 
         const info = document.createElement('span');
-        info.textContent = `Página ${currentPage} de ${totalPages}`;
         info.style.marginLeft = '10px';
+        info.textContent = `Página ${currentPage} de ${totalPages}`;
         paginationControls.appendChild(info);
       }
 
       function filterData(query) {
-        if (query.trim() === '') return globalData;
+        if (query.trim() === '') {
+          return globalData;
+        }
         query = query.toLowerCase();
         return globalData.filter(row =>
           row.some(cell => cell.toLowerCase().includes(query))
         );
-      }
-
-      function sortTableByColumn(index) {
-        const asc = sortState.index === index ? !sortState.asc : true;
-        sortState = { index, asc };
-
-        filteredData.sort((a, b) => {
-          const valA = a[index].toLowerCase();
-          const valB = b[index].toLowerCase();
-          if (valA < valB) return asc ? -1 : 1;
-          if (valA > valB) return asc ? 1 : -1;
-          return 0;
-        });
-
-        currentPage = 1;
-        renderTable(filteredData);
       }
 
       fetch(urlCSV)
@@ -241,13 +168,6 @@
           const allLines = parseCSV(data);
           headers = allLines[0];
           globalData = allLines.slice(1);
-
-          globalData.forEach((row, index) => {
-            while (row.length < headers.length) row.push('');
-            if (row.length > headers.length) row = row.slice(0, headers.length);
-            globalData[index] = row;
-          });
-
           filteredData = globalData;
           renderTable(filteredData);
         })
@@ -256,11 +176,12 @@
           console.error(error);
         });
 
-      buscador.addEventListener('input', debounce(function() {
-        filteredData = filterData(buscador.value);
+      buscador.addEventListener('input', function() {
+        const query = buscador.value;
+        filteredData = filterData(query);
         currentPage = 1;
         renderTable(filteredData);
-      }, 300));
+      });
     });
   </script>
 </body>
