@@ -40,6 +40,17 @@
       padding: 8px 12px;
       margin-right: 5px;
     }
+    .visually-hidden {
+      position: absolute !important;
+      height: 1px; 
+      width: 1px; 
+      overflow: hidden;
+      clip: rect(1px,1px,1px,1px);
+      white-space: nowrap;
+      border: 0;
+      padding: 0;
+      margin: 0;
+    }
   </style>
 </head>
 <body>
@@ -50,22 +61,53 @@
     type="text" 
     id="buscador" 
     placeholder="Ej. El Quijote"
+    aria-label="Campo de búsqueda para filtrar los libros por texto"
   >
 
   <div id="catalogo-libros">Cargando catálogo de libros...</div>
   <div class="pagination" id="pagination-controls"></div>
 
   <script>
-    // Mapeo de encabezados antiguos a nuevos nombres del CSV
-    const headerMapping = {
-      "CodigoEjemplar": "Código Ejemplar",
-      "Autor": "Autor",
-      "Titulo": "Título",
-      "Ubicacion": "Ubicación",
-      "Editorial": "Editorial",
-      "AnoEdicion": "Año Edición",
-      "Fondos.ISBN": "ISBN"
-    };
+    function parseCSVLine(line) {
+      const result = [];
+      let field = '';
+      let inQuotes = false;
+
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        
+        if (char === '"') {
+          if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
+            field += '"'; 
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (char === ',' && !inQuotes) {
+          result.push(field.trim());
+          field = '';
+        } else if ((char === '\r' || char === '\n') && !inQuotes) {
+          break;
+        } else {
+          field += char;
+        }
+      }
+      result.push(field.trim());
+      return result;
+    }
+
+    function parseCSV(data) {
+      const rawLines = data.split(/\r?\n/).filter(line => line.trim() !== '');
+      return rawLines.map(line => parseCSVLine(line));
+    }
+
+    function debounce(func, delay) {
+      let timeout;
+      return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), delay);
+      };
+    }
 
     document.addEventListener('DOMContentLoaded', function() {
       const catalogoDiv = document.getElementById('catalogo-libros');
@@ -80,19 +122,16 @@
       const rowsPerPage = 50;
       let filteredData = [];
 
-      function parseCSV(data) {
-        const rawLines = data.split(/\r?\n/).filter(line => line.trim() !== '');
-        return rawLines.map(line => line.split(',').map(cell => cell.trim()));
-      }
-
       function renderTable(data) {
         const table = document.createElement('table');
+        table.setAttribute('aria-label', 'Tabla con el listado de libros disponibles');
+
         const thead = document.createElement('thead');
         const trHead = document.createElement('tr');
 
         headers.forEach(header => {
           const th = document.createElement('th');
-          th.textContent = headerMapping[header] || header;
+          th.textContent = header;
           trHead.appendChild(th);
         });
         thead.appendChild(trHead);
@@ -121,12 +160,14 @@
 
       function renderPagination(data) {
         paginationControls.innerHTML = '';
-        const totalPages = Math.ceil(data.length / rowsPerPage);
+        const totalRows = data.length;
+        const totalPages = Math.ceil(totalRows / rowsPerPage);
         if (totalPages <= 1) return;
 
         const prevButton = document.createElement('button');
         prevButton.textContent = 'Anterior';
         prevButton.disabled = (currentPage === 1);
+        prevButton.setAttribute('aria-label', 'Ir a la página anterior');
         prevButton.addEventListener('click', function() {
           if (currentPage > 1) {
             currentPage--;
@@ -138,6 +179,7 @@
         const nextButton = document.createElement('button');
         nextButton.textContent = 'Siguiente';
         nextButton.disabled = (currentPage === totalPages);
+        nextButton.setAttribute('aria-label', 'Ir a la página siguiente');
         nextButton.addEventListener('click', function() {
           if (currentPage < totalPages) {
             currentPage++;
@@ -147,6 +189,7 @@
         paginationControls.appendChild(nextButton);
 
         const info = document.createElement('span');
+        info.setAttribute('aria-live', 'polite');
         info.style.marginLeft = '10px';
         info.textContent = `Página ${currentPage} de ${totalPages}`;
         paginationControls.appendChild(info);
@@ -166,8 +209,33 @@
         .then(response => response.text())
         .then(data => {
           const allLines = parseCSV(data);
-          headers = allLines[0];
+          
+          // Mapeo de encabezados
+          const headerMap = {
+            'CodigoEjemplar': 'Código Ejemplar',
+            'Autor': 'Autor',
+            'Titulo': 'Título',
+            'Ubicacion': 'Ubicación',
+            'Editorial': 'Editorial',
+            'AnoEdicion': 'Año Edición',
+            'Fondos.ISBN': 'ISBN'
+          };
+          
+          headers = allLines[0].map(header => headerMap[header] || header);
           globalData = allLines.slice(1);
+
+          const numColumns = headers.length;
+          globalData.forEach((row, index) => {
+            if (row.length > numColumns) {
+              row = row.slice(0, numColumns);
+            } else if (row.length < numColumns) {
+              while (row.length < numColumns) {
+                row.push('');
+              }
+            }
+            globalData[index] = row;
+          });
+
           filteredData = globalData;
           renderTable(filteredData);
         })
@@ -176,12 +244,12 @@
           console.error(error);
         });
 
-      buscador.addEventListener('input', function() {
+      buscador.addEventListener('input', debounce(function() {
         const query = buscador.value;
         filteredData = filterData(query);
         currentPage = 1;
         renderTable(filteredData);
-      });
+      }, 300));
     });
   </script>
 </body>
