@@ -253,6 +253,17 @@
           const allLines = parseCSV(data);
           // La primera línea son los encabezados
           headers = allLines[0];
+          // Mapeo para reemplazar los encabezados de forma automática
+          const headerMapping = {
+            "CodigoEjemplar": "Código",
+            "Autor": "Autor",
+            "Titulo": "Título",
+            "Ubicacion": "Ubicación",
+            "Editorial": "Editorial",
+            "AnoEdicion": "Año edición",
+            "Fondos.ISBN": "ISBN"
+          };
+          headers = headers.map(header => headerMapping[header] || header);
           // El resto son los datos
           globalData = allLines.slice(1);
 
