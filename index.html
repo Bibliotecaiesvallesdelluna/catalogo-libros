@@ -3,71 +3,38 @@
 <head>
   <meta charset="UTF-8">
   <title>Catálogo de Libros</title>
+  <!-- Incluimos Bootstrap 5 desde CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
+    /* Puedes mantener o ajustar tus estilos personalizados según necesites */
     body {
-      font-family: sans-serif;
-      margin: 20px;
+      margin-top: 20px;
     }
-    h1 {
-      margin-bottom: 20px;
-    }
-    label {
-      display: inline-block;
-      margin-bottom: 8px;
-      font-weight: bold;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 20px;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 8px;
-      text-align: left;
-    }
-    input {
-      margin-bottom: 20px;
-      padding: 8px;
-      width: 100%;
+    /* Ajusta el input para que tenga un ancho adecuado */
+    #buscador {
       max-width: 400px;
-    }
-    .pagination {
-      margin-top: 10px;
-    }
-    .pagination button {
-      padding: 8px 12px;
-      margin-right: 5px;
-    }
-    /* Clase útil para ocultar texto en accesibilidad (no se usa aquí, pero te puede servir) */
-    .visually-hidden {
-      position: absolute !important;
-      height: 1px; 
-      width: 1px; 
-      overflow: hidden;
-      clip: rect(1px,1px,1px,1px);
-      white-space: nowrap;
-      border: 0;
-      padding: 0;
-      margin: 0;
     }
   </style>
 </head>
 <body>
-  <h1>Catálogo de Libros</h1>
+  <div class="container">
+    <h1 class="mb-4">Catálogo de Libros</h1>
 
-  <!-- Etiqueta asociada al campo de búsqueda para mejorar la accesibilidad -->
-  <label for="buscador">Buscar en el catálogo:</label>
-  <input 
-    type="text" 
-    id="buscador" 
-    placeholder="Ej. El Quijote"
-    aria-label="Campo de búsqueda para filtrar los libros por texto"
-  >
+    <!-- Etiqueta asociada al campo de búsqueda para mejorar la accesibilidad -->
+    <label for="buscador" class="form-label">Buscar en el catálogo:</label>
+    <input 
+      type="text" 
+      id="buscador" 
+      class="form-control mb-4" 
+      placeholder="Ej. El Quijote"
+      aria-label="Campo de búsqueda para filtrar los libros por texto"
+    >
 
-  <div id="catalogo-libros">Cargando catálogo de libros...</div>
-  <div class="pagination" id="pagination-controls"></div>
+    <div id="catalogo-libros">Cargando catálogo de libros...</div>
+    <div class="pagination mt-3" id="pagination-controls"></div>
+  </div>
 
+  <!-- Tu script existente -->
   <script>
     /**
      * 1) Parser de CSV que respeta comillas:
@@ -83,40 +50,30 @@
         const char = line[i];
         
         if (char === '"') {
-          // Si estamos dentro de comillas y la siguiente es otra comilla, es un escape de comilla: ""
           if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
             field += '"'; 
-            i++; // Saltamos la comilla extra
+            i++;
           } else {
-            // Cambiamos el estado de inQuotes
             inQuotes = !inQuotes;
           }
         } else if (char === ',' && !inQuotes) {
-          // Fin de campo
           result.push(field.trim());
           field = '';
         } else if ((char === '\r' || char === '\n') && !inQuotes) {
-          // Salto de línea fuera de comillas => terminamos la línea
           break;
         } else {
           field += char;
         }
       }
-      // Añadimos el último campo si quedara algo pendiente
       result.push(field.trim());
       return result;
     }
 
     function parseCSV(data) {
-      // Separamos en líneas manejando \r\n o \n y quitamos líneas vacías
       const rawLines = data.split(/\r?\n/).filter(line => line.trim() !== '');
       return rawLines.map(line => parseCSVLine(line));
     }
 
-    /**
-     * 2) Función de debounce:
-     *    Retrasa la ejecución de 'func' hasta que pasen 'delay' ms sin nuevas invocaciones.
-     */
     function debounce(func, delay) {
       let timeout;
       return function(...args) {
@@ -130,23 +87,17 @@
       const buscador = document.getElementById('buscador');
       const paginationControls = document.getElementById('pagination-controls');
 
-      // URL del CSV (puede ser de Google Sheets o un CSV alojado en tu hosting)
-      // ¡Reemplaza con tu propio enlace CSV si lo deseas!
       const urlCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTlqKvq21xTVerkiDU_ZKitDj5C7go3VFfk3n046kNm9ev_tc3fV4z_fq8GVA3J8LqWfcsYPOlBt3OM/pub?output=csv';
 
-      // Variables globales para los datos
-      let globalData = [];   // Todas las filas (sin encabezados)
-      let headers = [];      // Encabezados de la tabla
+      let globalData = [];
+      let headers = [];
       let currentPage = 1;
       const rowsPerPage = 50;
-      let filteredData = []; // Datos filtrados según la búsqueda
+      let filteredData = [];
 
-      /**
-       * 3) Renderiza la tabla con los datos
-       */
       function renderTable(data) {
-        // Creamos la tabla y sus secciones
         const table = document.createElement('table');
+        table.className = "table table-striped table-hover";
         table.setAttribute('aria-label', 'Tabla con el listado de libros disponibles');
 
         const thead = document.createElement('thead');
@@ -161,12 +112,10 @@
         table.appendChild(thead);
 
         const tbody = document.createElement('tbody');
-        // Calculamos el rango de filas según la página actual
         const start = (currentPage - 1) * rowsPerPage;
         const end = start + rowsPerPage;
         const pageData = data.slice(start, end);
 
-        // Creamos las filas
         pageData.forEach(row => {
           const tr = document.createElement('tr');
           row.forEach(cell => {
@@ -178,27 +127,22 @@
         });
         table.appendChild(tbody);
 
-        // Reemplazamos el contenido anterior
         catalogoDiv.innerHTML = '';
         catalogoDiv.appendChild(table);
 
-        // Renderizamos los controles de paginación
         renderPagination(data);
       }
 
-      /**
-       * 4) Renderiza los controles de paginación
-       */
       function renderPagination(data) {
-        paginationControls.innerHTML = ''; // Limpiamos controles anteriores
+        paginationControls.innerHTML = '';
 
         const totalRows = data.length;
         const totalPages = Math.ceil(totalRows / rowsPerPage);
-        if (totalPages <= 1) return; // No mostrar paginación si solo hay 1 página
+        if (totalPages <= 1) return;
 
-        // Botón "Anterior"
         const prevButton = document.createElement('button');
         prevButton.textContent = 'Anterior';
+        prevButton.className = "btn btn-primary me-2";
         prevButton.disabled = (currentPage === 1);
         prevButton.setAttribute('aria-label', 'Ir a la página anterior');
         prevButton.addEventListener('click', function() {
@@ -209,9 +153,9 @@
         });
         paginationControls.appendChild(prevButton);
 
-        // Botón "Siguiente"
         const nextButton = document.createElement('button');
         nextButton.textContent = 'Siguiente';
+        nextButton.className = "btn btn-primary me-2";
         nextButton.disabled = (currentPage === totalPages);
         nextButton.setAttribute('aria-label', 'Ir a la página siguiente');
         nextButton.addEventListener('click', function() {
@@ -222,17 +166,13 @@
         });
         paginationControls.appendChild(nextButton);
 
-        // Información de la página actual (con aria-live para lectores de pantalla)
         const info = document.createElement('span');
         info.setAttribute('aria-live', 'polite');
-        info.style.marginLeft = '10px';
+        info.className = "ms-2";
         info.textContent = `Página ${currentPage} de ${totalPages}`;
         paginationControls.appendChild(info);
       }
 
-      /**
-       * 5) Función para filtrar los datos según la búsqueda
-       */
       function filterData(query) {
         if (query.trim() === '') {
           return globalData;
@@ -243,17 +183,13 @@
         );
       }
 
-      /**
-       * 6) Cargamos el CSV, lo parseamos y creamos la tabla inicial
-       */
       fetch(urlCSV)
         .then(response => response.text())
         .then(data => {
-          // Parseamos todo el CSV
           const allLines = parseCSV(data);
-          // La primera línea son los encabezados
           headers = allLines[0];
-          // Mapeo para reemplazar los encabezados de forma automática
+
+          // Mapeo para cambiar los encabezados automáticamente
           const headerMapping = {
             "CodigoEjemplar": "Código",
             "Autor": "Autor",
@@ -264,17 +200,13 @@
             "Fondos.ISBN": "ISBN"
           };
           headers = headers.map(header => headerMapping[header] || header);
-          // El resto son los datos
-          globalData = allLines.slice(1);
 
-          // Ajustamos las filas si algunas tienen más/menos columnas que los encabezados
+          globalData = allLines.slice(1);
           const numColumns = headers.length;
           globalData.forEach((row, index) => {
             if (row.length > numColumns) {
-              // Recortamos columnas sobrantes
               row = row.slice(0, numColumns);
             } else if (row.length < numColumns) {
-              // Rellenamos columnas faltantes con cadenas vacías
               while (row.length < numColumns) {
                 row.push('');
               }
@@ -282,7 +214,6 @@
             globalData[index] = row;
           });
 
-          // Mostramos la tabla inicial (sin filtros)
           filteredData = globalData;
           renderTable(filteredData);
         })
@@ -291,16 +222,15 @@
           console.error(error);
         });
 
-      /**
-       * 7) Escuchamos el evento de búsqueda con debounce (300ms)
-       */
       buscador.addEventListener('input', debounce(function() {
         const query = buscador.value;
         filteredData = filterData(query);
-        currentPage = 1; // Reiniciamos a la primera página tras la búsqueda
+        currentPage = 1;
         renderTable(filteredData);
       }, 300));
     });
   </script>
+  <!-- Opcional: Incluye el JS de Bootstrap si requieres componentes interactivos -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
