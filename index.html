@@ -8,23 +8,26 @@
   <style>
     body {
       font-family: sans-serif;
-      /* Fondo moderno y discreto: un gris muy claro */
-      background-color: #f4f4f9;
-      margin: 20px;
+      background-color: #f4f4f9; /* Fondo moderno y discreto */
+      margin: 0;
+      padding: 20px;
     }
-    /* Si deseas más personalización para el contenedor central */
+    /* Contenedor con fondo semi-transparente para dejar ver el fondo del body */
     .custom-container {
-      background: #ffffff;
+      background: rgba(255, 255, 255, 0.9);
       padding: 20px;
       border-radius: 8px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    /* Regla extra para forzar el centrado del título */
+    h1 {
+      text-align: center;
     }
   </style>
 </head>
 <body>
   <div class="container custom-container">
-    <!-- Título centrado -->
-    <h1 class="text-center mb-4">Catálogo de Libros</h1>
+    <h1 class="mb-4">Catálogo de Libros</h1>
     <label for="buscador" class="form-label">Buscar en el catálogo:</label>
     <input 
       type="text" 
@@ -37,7 +40,6 @@
     <div class="pagination mt-3" id="pagination-controls"></div>
   </div>
 
-  <!-- Tu script existente -->
   <script>
     function parseCSVLine(line) {
       const result = [];
@@ -64,12 +66,10 @@
       result.push(field.trim());
       return result;
     }
-
     function parseCSV(data) {
       const rawLines = data.split(/\r?\n/).filter(line => line.trim() !== '');
       return rawLines.map(line => parseCSVLine(line));
     }
-
     function debounce(func, delay) {
       let timeout;
       return function(...args) {
@@ -77,24 +77,20 @@
         timeout = setTimeout(() => func.apply(this, args), delay);
       };
     }
-
     document.addEventListener('DOMContentLoaded', function() {
       const catalogoDiv = document.getElementById('catalogo-libros');
       const buscador = document.getElementById('buscador');
       const paginationControls = document.getElementById('pagination-controls');
       const urlCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTlqKvq21xTVerkiDU_ZKitDj5C7go3VFfk3n046kNm9ev_tc3fV4z_fq8GVA3J8LqWfcsYPOlBt3OM/pub?output=csv';
-
       let globalData = [];
       let headers = [];
       let currentPage = 1;
       const rowsPerPage = 50;
       let filteredData = [];
-
       function renderTable(data) {
         const table = document.createElement('table');
         table.className = "table table-striped table-hover";
         table.setAttribute('aria-label', 'Tabla con el listado de libros disponibles');
-
         const thead = document.createElement('thead');
         const trHead = document.createElement('tr');
         headers.forEach(header => {
@@ -104,7 +100,6 @@
         });
         thead.appendChild(trHead);
         table.appendChild(thead);
-
         const tbody = document.createElement('tbody');
         const start = (currentPage - 1) * rowsPerPage;
         const end = start + rowsPerPage;
@@ -119,18 +114,15 @@
           tbody.appendChild(tr);
         });
         table.appendChild(tbody);
-
         catalogoDiv.innerHTML = '';
         catalogoDiv.appendChild(table);
         renderPagination(data);
       }
-
       function renderPagination(data) {
         paginationControls.innerHTML = '';
         const totalRows = data.length;
         const totalPages = Math.ceil(totalRows / rowsPerPage);
         if (totalPages <= 1) return;
-
         const prevButton = document.createElement('button');
         prevButton.textContent = 'Anterior';
         prevButton.className = "btn btn-primary me-2";
@@ -143,7 +135,6 @@
           }
         });
         paginationControls.appendChild(prevButton);
-
         const nextButton = document.createElement('button');
         nextButton.textContent = 'Siguiente';
         nextButton.className = "btn btn-primary me-2";
@@ -156,14 +147,12 @@
           }
         });
         paginationControls.appendChild(nextButton);
-
         const info = document.createElement('span');
         info.setAttribute('aria-live', 'polite');
         info.className = "ms-2";
         info.textContent = `Página ${currentPage} de ${totalPages}`;
         paginationControls.appendChild(info);
       }
-
       function filterData(query) {
         if (query.trim() === '') {
           return globalData;
@@ -173,13 +162,11 @@
           row.some(cell => cell.toLowerCase().includes(query))
         );
       }
-
       fetch(urlCSV)
         .then(response => response.text())
         .then(data => {
           const allLines = parseCSV(data);
           headers = allLines[0];
-          // Mapeo para cambiar los encabezados automáticamente
           const headerMapping = {
             "CodigoEjemplar": "Código",
             "Autor": "Autor",
@@ -209,7 +196,6 @@
           catalogoDiv.textContent = 'Error al cargar el catálogo';
           console.error(error);
         });
-
       buscador.addEventListener('input', debounce(function() {
         const query = buscador.value;
         filteredData = filterData(query);
